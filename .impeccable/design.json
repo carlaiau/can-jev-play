@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-22T23:44:03.436100+00:00",
+  "title": "Design System: JEV Dice Lab",
+  "extensions": {
+    "shadows": [
+      {
+        "name": "catalyst-control",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+        "purpose": "Supplied Catalyst button and select inset surface shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "outcome-reveal",
+        "value": "450ms cubic-bezier(.16,1,.3,1)",
+        "purpose": "Clip and fade the revealed roll."
+      },
+      {
+        "name": "busy",
+        "value": "1.2s linear infinite",
+        "purpose": "Busy icon rotation; all motion disabled under reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile-max",
+        "value": "700px"
+      },
+      {
+        "name": "header-nav-max",
+        "value": "950px"
+      },
+      {
+        "name": "compact-desktop-max",
+        "value": "1200px"
+      },
+      {
+        "name": "wide-min",
+        "value": "1600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Catalyst green experiment action, desktop sizing.",
+      "html": "<button class=\"ds-primary\">Start experiment</button>",
+      "css": ".ds-primary{font-family:'Inter Variable',sans-serif;position:relative;border:1px solid color-mix(in oklab,var(--color-green-700,oklch(52.7% .154 150.069)) 90%,transparent);border-radius:8px;background:var(--color-green-600,oklch(62.7% .194 149.214));color:white;padding:5px 11px;font-size:12px;line-height:24px;font-weight:600;min-height:37px;box-shadow:0 1px 3px #0000001a,0 1px 2px -1px #0000001a,inset 0 1px #ffffff26}.ds-primary:hover,.ds-primary:active{background:color-mix(in oklab,var(--color-green-600,oklch(62.7% .194 149.214)),white 10%)}.ds-primary:focus-visible{outline:2px solid var(--color-blue-500,oklch(62.3% .214 259.815));outline-offset:2px;}.ds-primary:disabled{opacity:.5}"
+    },
+    {
+      "name": "Outline action",
+      "kind": "button",
+      "description": "Secondary evidence or export action.",
+      "html": "<button class=\"ds-outline\">View the evidence</button>",
+      "css": ".ds-outline{font-family:'Inter Variable',sans-serif;border:1px solid #09090b1a;border-radius:8px;background:transparent;color:#09090b;padding:5px 11px;font-size:14px;font-weight:600;line-height:24px}.ds-outline:hover,.ds-outline:active{background:#09090b06}.ds-outline:focus-visible{outline:2px solid var(--color-blue-500,oklch(62.3% .214 259.815));outline-offset:2px;}.ds-outline:disabled{opacity:.5}"
+    },
+    {
+      "name": "Scenario select",
+      "kind": "input",
+      "description": "Compact Catalyst scenario control.",
+      "html": "<select class=\"ds-select\" aria-label=\"Response source\"><option>Recorded study</option><option>Live JEV</option></select>",
+      "css": ".ds-select{font-family:'Inter Variable',sans-serif;background:white;color:#09090b;border:1px solid #09090b1a;border-radius:8px;padding:5px 35px 5px 11px;font-size:12px;line-height:24px;min-height:37px;box-shadow:0 1px 3px #0000001a,0 1px 2px -1px #0000001a}.ds-select:hover{border-color:#09090b33}.ds-select:focus-visible{outline:2px solid var(--color-blue-500,oklch(62.3% .214 259.815));outline-offset:2px;}.ds-select:disabled{opacity:.5}"
+    },
+    {
+      "name": "Selected navigation",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Current workspace location.",
+      "html": "<button class=\"ds-nav\" aria-current=\"page\">Experiment</button>",
+      "css": ".ds-nav{font-family:'Inter Variable',sans-serif;padding:11px 12px;border:0;border-radius:7px;background:#dce7d4;color:#24472d;font-size:12px;font-weight:550;text-align:left}.ds-nav:hover{background:#e4eadd}.ds-nav:focus-visible{outline:2px solid #327855;outline-offset:4px}"
+    },
+    {
+      "name": "Model tag",
+      "kind": "chip",
+      "description": "Compact provenance metadata.",
+      "html": "<span class=\"ds-tag\">jev-1.13.0</span>",
+      "css": ".ds-tag{font-family:'Inter Variable',sans-serif;display:inline-block;font-size:10px;padding:4px 9px;background:white;border:1px solid var(--line,#e1e6de);border-radius:5px;color:var(--muted,#68716b)}"
+    },
+    {
+      "name": "Offer panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Flat working surface for payout evidence.",
+      "html": "<section class=\"ds-panel\"><h2>The next offer</h2><p>Payout table shared by both conditions.</p></section>",
+      "css": ".ds-panel{font-family:'Inter Variable',sans-serif;background:white;color:var(--ink,#242d27);border:1px solid var(--line,#e1e6de);border-radius:12px;padding:23px}.ds-panel h2{margin:0;font-size:16px;font-weight:610;letter-spacing:-.02em}.ds-panel p{margin:9px 0 0;color:var(--muted,#68716b);font-size:11px;line-height:1.7}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Research Workbench",
+    "overview": "A compact research workbench with warm paper, quiet rules, and paired evidence. Forest and amber distinguish the conditions without turning the experiment into a game. Inter Variable and tabular numerals keep dense tables readable.\n\nThe interface uses Catalyst\u2019s supplied Button, Select, and Badge components alongside custom offer, decision, history, and ledger surfaces. The existing direction calls for no decorative hero or imagery. Depth and motion serve controls and the moment an outcome is revealed.",
+    "keyCharacteristics": [
+      "Warm paper and white working surfaces",
+      "Compact numerical typography",
+      "Paired green and amber conditions",
+      "Flat panels with restrained control depth"
+    ],
+    "rules": [
+      {
+        "name": "The Paired Evidence Rule",
+        "body": "Keep the two conditions visually comparable; use color alongside explicit condition names.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Do preserve side-by-side condition comparison on narrow screens.",
+      "Do keep numerical columns aligned with tabular numerals.",
+      "Do retain provenance labels and visible keyboard focus."
+    ],
+    "donts": [
+      "Don\u2019t add decorative hero imagery to the workbench.",
+      "Don\u2019t use winning-roll styling to imply a correct judgment.",
+      "Don\u2019t hide table columns to fit small screens; allow horizontal scrolling."
+    ]
+  }
+}
