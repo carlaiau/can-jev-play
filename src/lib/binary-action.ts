@@ -26,3 +26,20 @@ export function summarizeBinary(results: BinaryResult[]) {
       meanExpectedNet: rows.reduce((sum, r) => sum + (r.action === 'bet' ? r.ev : 0), 0) / rows.length };
   });
 }
+
+/** Gate Bet by confidence; a confident Skip must never become a Bet. */
+export function choiceThresholdMetrics(rows: {ev:number;decisions:{table:{response:Record<string,unknown>}}}[]) {
+  const values=rows.map(row=>{
+    const parsed=parseBinaryAction(row.decisions.table.response);
+    const answers=parsed.response.answers as Record<string,{confidence?:unknown}>;
+    const confidence=answers.action.confidence;
+    if(typeof confidence!=='number'||!Number.isFinite(confidence)||confidence<0||confidence>1)throw Error('Invalid Choice confidence');
+    return {ev:row.ev,action:parsed.action,confidence};
+  });
+  return [.1,.2,.3,.4,.5,.6,.7,.8,.9].map(threshold=>{
+    const bet=(r:typeof values[number])=>r.action==='bet'&&r.confidence>threshold;
+    const positives=values.filter(r=>r.ev>0),negatives=values.filter(r=>r.ev<0),bets=values.filter(bet);
+    const correctBet=positives.filter(bet).length,correctSkip=negatives.filter(r=>!bet(r)).length;
+    return {threshold,calls:values.length,bets:bets.length,positive:positives.length,negative:negatives.length,correctBet,correctSkip,correct:correctBet+correctSkip,expectedProfit:Number(bets.reduce((sum,r)=>sum+r.ev,0).toFixed(2))};
+  });
+}

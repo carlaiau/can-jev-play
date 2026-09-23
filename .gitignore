@@ -5,3 +5,6 @@ reports/
 *.tsbuildinfo
 .env*
 !.env.example
+
+/public/experiments/
+/src/data/generated/

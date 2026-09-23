@@ -278,3 +278,6 @@ main {padding-bottom:34px;}
 .sidebar-github:hover {color:var(--green);}
 .sidebar-github:focus-visible {outline:2px solid var(--green);outline-offset:4px;}
 @media(max-width:950px){.sidebar-github {margin-top:0;padding:6px 0;}}
+
+.primitive-comparison table { min-width: 700px; }
+.primitive-comparison th, .primitive-comparison td { white-space: nowrap; }

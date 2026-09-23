@@ -223,3 +223,6 @@ Experiments begins with the initial history-bias finding and the replication des
 
 ## Can Jev Play refinement
 Experiment charts always display the full selected run; window sizes and pan controls are removed. Totals and plotted endpoints cover the same scope. The graph precedes the comparison table, with full evidence accessible by graph selection or a labeled roll-number form and Previous/Next actions. History tabs support arrow/Home/End keyboard navigation. Mobile navigation has visible Dice lab, Experiments, Findings and Guide labels with active-page semantics. The live rate table appears after the first decision; the compact opening explains the task and trading-demo motivation. Repeated Findings conclusions are removed while evidence, caveats and source provenance remain.
+
+## Noul experiment selection
+Experiments reuses the existing labeled Select beside EV magnitude for question type: Choice or Noul. A short contextual note states Noul's fixed >0.5 Bet rule and separate-batch provenance. Both modes share the full-run chart, history tabs, metrics, and exact-payload inspector; no additional chart style or card system is introduced.

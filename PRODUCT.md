@@ -69,3 +69,6 @@ Discussion reference: https://docs.typesafe.ai/model-jaggedness/jev-1.13#math-an
 
 ## Brand and game scope
 The product and repository name is Can Jev Play. Dice is the first game; further games will test decisions at differing levels of complexity. Use a combined die and playing-card mark for the app identity to represent the broader gaming scope. The current live navigation entry is Dice lab. No additional game is presented as available until implemented.
+
+## Matched Noul experiment
+A separate Noul batch reuses all 12,000 exact Choice states and history conditions. Its positive-EV proposition maps to Bet iff `noul > 0.5`, with ties skipped. Choice remains the live-lab and Findings baseline. Experiments adds a question-type selector; both datasets share the full-run chart and inspector. Collection timestamps differ and wording changes with the primitive, so this is a matched-input comparison rather than a simultaneous randomized primitive trial.

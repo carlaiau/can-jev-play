@@ -1,3 +1,5 @@
+import {choiceThresholdMetrics} from './binary-action.ts';
+import {noulThresholdMetrics} from './noul-action.ts';
 import {historyMetrics} from './history-experiment';
 import { historyPlan, historyRequest, withoutRecentHistory, type HistoryStudy, type Scenario } from './history-experiment.ts';
 import { randomInt, randomUUID } from 'node:crypto';
@@ -6,6 +8,7 @@ import path from 'node:path';
 import dataset from '../data/recorded-study.json';
 import faceData from '../data/face-study.json';
 import structuredData from '../data/structured-study.json';
+import historyControl from '../data/history-control-summary.json';
 import { parseBinaryAction } from './binary-action.ts';
 import type { summarizeBinary } from './binary-action.ts';
 import type { analyzeThresholds } from './score-threshold';
@@ -19,16 +22,17 @@ const structuredDataset = structuredData as unknown as { summary: ReturnType<typ
 const root = path.join(process.cwd(), 'reports', 'web');
 export const studySummaries = { ...dataset.studies, thresholds: faceDataset.thresholds, binary: structuredDataset.summary };
 export const liveAvailable = () => !!process.env.TYPESAFE_API_KEY?.trim();
-let historyCache: { modified: number; value: Promise<HistoryStudy> } | undefined;
-export async function readHistoryStudy(): Promise<HistoryStudy> {
- const filename=path.join(process.cwd(),'src/data/history-study.json');
+const historyCaches = new Map<string, { modified: number; value: Promise<HistoryStudy> }>();
+export async function readHistoryStudy(primitive: 'choice' | 'noul' = 'choice'): Promise<HistoryStudy> {
+ const filename=path.join(process.cwd(),primitive==='noul'?'src/data/noul-study.json':'src/data/history-study.json');
  const modified=(await stat(filename)).mtimeMs;
- if(!historyCache || historyCache.modified!==modified) {
+ let cached=historyCaches.get(primitive);
+ if(!cached || cached.modified!==modified) {
   const value=readFile(filename,'utf8').then(raw=>JSON.parse(raw) as HistoryStudy);
-  historyCache={modified,value};
-  value.catch(()=>{if(historyCache?.value===value)historyCache=undefined;});
+  cached={modified,value};historyCaches.set(primitive,cached);
+  value.catch(()=>{if(historyCaches.get(primitive)?.value===value)historyCaches.delete(primitive);});
  }
- return historyCache.value;
+ return cached.value;
 }
 export function validateConfig(value: unknown): LabConfig {
  const c=value as LabConfig;
@@ -128,7 +132,7 @@ export function sessionCost(session: LabSession) {
 }
 
 export async function historyFindings() {
- const study=await readHistoryStudy();
- const control=JSON.parse(await readFile(process.cwd()+'/src/data/history-control-summary.json','utf8'));
- return {...control,current:{provenance:study.provenance,interleaved:study.rows.every(r=>r.id.startsWith('interleaved-v2-')),metrics:historyMetrics(study.rows)}};
+ const [study,noul]=await Promise.all([readHistoryStudy(),readHistoryStudy('noul')]);
+ const expectedProfit=(s:HistoryStudy)=>Number(s.rows.reduce((sum,r)=>sum+(r.decisions.table.action==='bet'?r.ev:0),0).toFixed(2));
+ return {...historyControl,noul:{choiceThresholds:choiceThresholdMetrics(study.rows),optimalExpectedProfit:Number(study.rows.reduce((sum,r)=>sum+Math.max(0,r.ev),0).toFixed(2)),thresholds:noulThresholdMetrics(noul.rows),provenance:noul.provenance,metrics:historyMetrics(noul.rows),expectedProfit:expectedProfit(noul),choiceExpectedProfit:expectedProfit(study)},current:{provenance:study.provenance,interleaved:study.rows.every(r=>r.id.startsWith('interleaved-v2-')),metrics:historyMetrics(study.rows)}};
 }

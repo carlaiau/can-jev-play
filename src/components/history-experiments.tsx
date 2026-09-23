@@ -1,40 +1,68 @@
 'use client';
 import {ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine} from 'recharts';
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {HistoryReport} from './history-report';
 import {Die} from './die';
 import {Button} from './catalyst/button';
 import {Select} from './catalyst/select';
-import {expectedBenchmarkRows,scenarios,type HistoryStudy,type Magnitude,type HistoryGroup} from '../lib/history-experiment';
+import {scenarios,type ExperimentRow,type HistoryStudy,type Magnitude,type HistoryGroup} from '../lib/history-experiment';
 import {ArrowDownTrayIcon,ChevronLeftIcon,ChevronRightIcon} from '@heroicons/react/24/outline';
 const money=(n:number)=>`${n<0?'−':n>0?'+':''}$${Math.abs(n).toFixed(2)}`;
 const names:Record<HistoryGroup,string>={all:'All','no-history':'No history',mixed:'Mixed outcomes',wins:'Six wins',losses:'Six losses'};
 const groups:HistoryGroup[]=['all',...scenarios,'no-history'];
 
+type ExperimentSummary = {
+ provenance:string; interleaved:boolean; counts:HistoryStudy['counts']; metrics:HistoryStudy['metrics'];
+ rows:{number:number;scenario:ExperimentRow['scenario'];ev:number;decisions:{table:{action:'bet'|'skip'}};detailUrl:string}[];
+ curves:{number:number;table:number;optimal:number}[];exportUrl:string;
+};
 export function HistoryExperiments(){
- const [study,setStudy]=useState<HistoryStudy|null>(null),[error,setError]=useState('');
+ const [primitive,setPrimitive]=useState<'choice'|'noul'>('choice');
+ const [study,setStudy]=useState<ExperimentSummary|null>(null),[error,setError]=useState('');
  const [magnitude,setMagnitude]=useState<Magnitude>(5),[scenario,setScenario]=useState<HistoryGroup>('mixed');
  const [selected,setSelected]=useState<number|null>(null),[rollInput,setRollInput]=useState('1');
  const detailsRef=useRef<HTMLElement>(null);
  const loadVersion=useRef(0);
- async function load(){const version=++loadVersion.current;setError('');setStudy(null);try{const r=await fetch(`/api/experiments?magnitude=${magnitude}&scenario=${scenario}`);const d=await r.json();if(!r.ok)throw Error(d.error);if(version!==loadVersion.current)return;setStudy(d);}catch(e){if(version===loadVersion.current)setError(e instanceof Error?e.message:'Could not load results.');}}
- useEffect(()=>{void load();return()=>{loadVersion.current++;};},[magnitude,scenario]);
- const rows=useMemo(()=>study?.rows.filter(r=>r.magnitude===magnitude&&(scenario==='all'||r.scenario===scenario))??[],[study,magnitude,scenario]);
+ async function load(){const version=++loadVersion.current;setError('');setStudy(null);try{const r=await fetch(`/api/experiments?magnitude=${magnitude}&scenario=${scenario}&primitive=${primitive}`);const d=await r.json();if(!r.ok)throw Error(d.error);if(version!==loadVersion.current)return;setStudy(d);}catch(e){if(version===loadVersion.current)setError(e instanceof Error?e.message:'Could not load results.');}}
+ useEffect(()=>{void load();return()=>{loadVersion.current++;};},[magnitude,scenario,primitive]);
+ const rows=study?.rows??[];
  const total=rows.length || (scenario==='all'?4000:1000);
- const curves=useMemo(()=>[{number:0,table:0,optimal:0},...expectedBenchmarkRows(rows)],[rows]);
+ const curves=study?.curves??[{number:0,table:0,optimal:0}];
  const points=curves;
  const lo=Math.min(0,...points.flatMap(p=>[p.table,p.optimal])),hi=Math.max(1,...points.flatMap(p=>[p.table,p.optimal]));
  const pad=Math.max(1,(hi-lo)*.12),bottom=lo-pad,top=hi+pad;
 
- const chosen=rows.find(r=>r.number===selected);
- useEffect(()=>{if(selected!==null)detailsRef.current?.scrollIntoView({behavior:'smooth',block:'nearest'});},[selected]);
+ const [chosen,setChosen]=useState<ExperimentRow|null>(null);
+ const [detailError,setDetailError]=useState(''),[detailRetry,setDetailRetry]=useState(0);
+ const [exporting,setExporting]=useState(false),[exportError,setExportError]=useState('');
+ useEffect(()=>{
+  setChosen(null);setDetailError('');
+  const row=study?.rows.find(r=>r.number===selected);
+  if(!row)return;
+  const controller=new AbortController();
+  void fetch(row.detailUrl,{signal:controller.signal}).then(async response=>{
+   if(!response.ok)throw Error('Could not load this result. Please retry.');
+   const result:ExperimentRow=await response.json();
+   if(!controller.signal.aborted)setChosen({...result,sourceNumber:result.sourceNumber??result.number,number:row.number});
+  }).catch(error=>{if(!controller.signal.aborted)setDetailError(error instanceof Error?error.message:'Could not load this result.');});
+  return()=>controller.abort();
+ },[study,selected,detailRetry]);
+ useEffect(()=>{if(selected!==null)detailsRef.current?.scrollIntoView({behavior:'smooth',block:'nearest'});},[selected,chosen]);
  function selectRound(number:number){if(!Number.isInteger(number)||number<1||number>rows.length)return;setSelected(number);setRollInput(String(number));}
  function changeRange(value:Magnitude){setMagnitude(value);setSelected(null);setRollInput('1');}
- function exportRun(){if(!study)return;const b=new Blob([JSON.stringify({provenance:study.provenance,magnitude,scenario,metric:'Cumulative expected dollar profit, fixed $100 bets; skips add zero',rows:rows.map(({decisions,...row})=>({...row,decisions:{table:decisions.table},optimalAction:row.ev>0?'bet':'skip'})),curves,benchmark:'Bet on positive EV; otherwise Skip. Mathematical benchmark, not a Jev response.'},null,2)],{type:'application/json'});const url=URL.createObjectURL(b);const a=document.createElement('a');a.href=url;a.download=`jev-history-${magnitude}-${scenario}.json`;a.click();URL.revokeObjectURL(url);}
- return <>
-  <div className="page-heading"><div><h1>Does the recent past change the decision?</h1><p>Can Jev find the profitable offers when recent history changes? Compare the full run with the mathematical EV benchmark.</p></div><Button outline disabled={!study} onClick={exportRun}><ArrowDownTrayIcon data-slot="icon"/>Export run</Button></div>
+ async function exportRun(){
+  if(!study)return;setExporting(true);setExportError('');
+  try{const response=await fetch(study.exportUrl);if(!response.ok)throw Error('Could not export this run. Please retry.');
+   const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`jev-${primitive}-${magnitude}-${scenario}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(error){setExportError(error instanceof Error?error.message:'Could not export this run.');}finally{setExporting(false);}
+ }
 
-  <div className="history-study-controls"><label>EV magnitude<Select aria-label="Experiment EV magnitude" value={magnitude} onChange={e=>changeRange(Number(e.target.value) as Magnitude)}>{[1,5,15].map(m=><option key={m} value={m}>Up to ±{m}%</option>)}</Select></label><p>{total.toLocaleString()} offers per run · mixed positive and negative EV · fixed $100 bets</p></div>
+ return <>
+  <div className="page-heading"><div><h1>Does the recent past change the decision?</h1><p>Can Jev find the profitable offers when recent history changes? Compare the full run with the mathematical EV benchmark.</p></div><Button outline disabled={!study||exporting} onClick={exportRun}><ArrowDownTrayIcon data-slot="icon"/>{exporting?'Exporting…':'Export run'}</Button></div>
+
+  {exportError&&<p role="alert" className="error">{exportError}</p>}
+  <div className="history-study-controls"><label>Question type<Select aria-label="Experiment question type" value={primitive} onChange={e=>{setPrimitive(e.target.value as 'choice'|'noul');setSelected(null);setRollInput('1');}}><option value="choice">Choice · Bet or Skip</option><option value="noul">Noul · Positive EV?</option></Select></label><label>EV magnitude<Select aria-label="Experiment EV magnitude" value={magnitude} onChange={e=>changeRange(Number(e.target.value) as Magnitude)}>{[1,5,15].map(m=><option key={m} value={m}>Up to ±{m}%</option>)}</Select></label><p>{total.toLocaleString()} offers per run · mixed positive and negative EV · fixed $100 bets</p></div>
+  {primitive==='noul'&&<p className="ledger-footnote">Same offers and histories as Choice. Bet when Noul is above 0.5; otherwise Skip. Collected in a separate batch; the live lab and Findings still use Choice.</p>}
   <div className="history-tabs" role="tablist" aria-label="Recent-roll experiment">{groups.map(s=>{const count=study?.counts?.find(c=>c.magnitude===magnitude&&c.scenario===s);return <button key={s} id={`history-tab-${s}`} tabIndex={scenario===s?0:-1} onKeyDown={e=>{const i=groups.indexOf(s);const next=e.key==='ArrowRight'?groups[(i+1)%groups.length]:e.key==='ArrowLeft'?groups[(i+groups.length-1)%groups.length]:e.key==='Home'?groups[0]:e.key==='End'?groups.at(-1):undefined;if(next){e.preventDefault();setScenario(next);setSelected(null);setRollInput('1');document.getElementById(`history-tab-${next}`)?.focus();}}} role="tab" aria-selected={scenario===s} aria-controls="history-study-panel" onClick={()=>{setScenario(s);setSelected(null);setRollInput('1');}}><span>{names[s]}</span><small>{count?`${count.tableCorrect.toLocaleString()} / ${count.calls.toLocaleString()} correct`:'Loading…'}</small></button>;})}</div>
   {error?<div className="error" role="alert">{error}<Button outline onClick={load}>Retry</Button></div>:!study?<p role="status">Loading recorded experiments…</p>:<div id="history-study-panel" role="tabpanel" aria-label={names[scenario]}>
 
@@ -59,9 +87,10 @@ export function HistoryExperiments(){
    <form className="roll-inspector-controls" onSubmit={e=>{e.preventDefault();selectRound(Number(rollInput));}}><label htmlFor="inspect-roll">Inspect roll <input id="inspect-roll" type="number" min={1} max={total} step={1} required value={rollInput} onChange={e=>setRollInput(e.target.value)}/></label><span>of {total.toLocaleString()}</span><Button outline type="submit">Inspect</Button><div><Button plain type="button" aria-label="Inspect previous roll" disabled={selected===null||selected<=1} onClick={()=>selectRound(selected!-1)}><ChevronLeftIcon data-slot="icon"/>Previous</Button><Button plain type="button" aria-label="Inspect next roll" disabled={selected===null||selected>=total} onClick={()=>selectRound(selected!+1)}>Next<ChevronRightIcon data-slot="icon"/></Button></div></form>
    <p className="chart-formula">{scenario==='all' && <>Combines all history conditions in matched-offer order. </>}Starts at $0. Bet adds the offer’s expected dollar profit; Skip adds $0. Optimal EV bets only on positive-EV offers. No reinvestment or changing bet size.</p>
   </section>
-  {chosen&&<section ref={detailsRef} className="selected-decision" aria-live="polite"><div className="panel-heading"><h2>Roll {chosen.number} · {names[chosen.scenario]} · {chosen.ev>0?'+':''}{chosen.ev}% EV</h2><Button plain onClick={()=>setSelected(null)}>Close details</Button></div><p>The correct action is <strong>{chosen.ev>0?'Bet':'Skip'}</strong>: {chosen.ev>0?`betting adds ${money(chosen.ev)} of expected profit.`:`skipping avoids ${money(chosen.ev)} of expected loss.`} The rolled face ({chosen.face}) does not change this assessment.</p><div className="experiment-detail-grid"><section><h3>Offered payouts</h3><table className="payout-table"><thead><tr><th>Face</th><th>Gross payout</th><th>Net profit</th></tr></thead><tbody>{chosen.gross.map((gross,index)=><tr key={index} className={chosen.face===index+1?'selected-roll':''}><td><Die face={index+1}/><span className="face-number">{index+1}</span>{chosen.face===index+1&&<span className="rolled-label">Rolled</span>}</td><td>${gross.toFixed(2)}</td><td className={gross-100<0?'negative':'positive'}>{money(gross-100)}</td></tr>)}</tbody></table></section><section><h3>Jev · {chosen.decisions.table.action==='bet'?'Bet':'Skip'}</h3><p className={(chosen.decisions.table.action==='bet')===(chosen.ev>0)?'positive':'negative'}>{(chosen.decisions.table.action==='bet')===(chosen.ev>0)?'Correct EV action':`Incorrect EV action · $${(Math.max(chosen.ev,0)-(chosen.decisions.table.action==='bet'?chosen.ev:0)).toFixed(2)} expected profit forgone`}</p><details open><summary>Exact model input and output</summary><pre>{JSON.stringify({request:chosen.decisions.table.request,response:chosen.decisions.table.response,source:chosen.sourceRun??study.provenance,trial:chosen.id,sourceRound:chosen.sourceNumber??chosen.number,history:chosen.scenario},null,2)}</pre></details></section></div></section>}
+  {selected!==null&&!chosen&&<div role="status">{detailError?<><span role="alert">{detailError}</span><Button outline onClick={()=>setDetailRetry(n=>n+1)}>Retry</Button></>:"Loading result…"}</div>}
+  {chosen&&selected===chosen.number&&<section ref={detailsRef} className="selected-decision" aria-live="polite"><div className="panel-heading"><h2>Roll {chosen.number} · {names[chosen.scenario]} · {chosen.ev>0?'+':''}{chosen.ev}% EV</h2><Button plain onClick={()=>setSelected(null)}>Close details</Button></div><p>The correct action is <strong>{chosen.ev>0?'Bet':'Skip'}</strong>: {chosen.ev>0?`betting adds ${money(chosen.ev)} of expected profit.`:`skipping avoids ${money(chosen.ev)} of expected loss.`} The rolled face ({chosen.face}) does not change this assessment.</p><div className="experiment-detail-grid"><section><h3>Offered payouts</h3><table className="payout-table"><thead><tr><th>Face</th><th>Gross payout</th><th>Net profit</th></tr></thead><tbody>{chosen.gross.map((gross,index)=><tr key={index} className={chosen.face===index+1?'selected-roll':''}><td><Die face={index+1}/><span className="face-number">{index+1}</span>{chosen.face===index+1&&<span className="rolled-label">Rolled</span>}</td><td>${gross.toFixed(2)}</td><td className={gross-100<0?'negative':'positive'}>{money(gross-100)}</td></tr>)}</tbody></table></section><section><h3>Jev · {chosen.decisions.table.action==='bet'?'Bet':'Skip'}</h3><p className={(chosen.decisions.table.action==='bet')===(chosen.ev>0)?'positive':'negative'}>{(chosen.decisions.table.action==='bet')===(chosen.ev>0)?'Correct EV action':`Incorrect EV action · $${(Math.max(chosen.ev,0)-(chosen.decisions.table.action==='bet'?chosen.ev:0)).toFixed(2)} expected profit forgone`}</p><details open><summary>Exact model input and output</summary><pre>{JSON.stringify({request:chosen.decisions.table.request,response:chosen.decisions.table.response,source:chosen.sourceRun??study.provenance,trial:chosen.id,sourceRound:chosen.sourceNumber??chosen.number,history:chosen.scenario},null,2)}</pre></details></section></div></section>}
 
-  {study.metrics&&<HistoryReport view="table" metrics={study.metrics} selected={scenario} interleaved={study.rows.every(r=>r.id.startsWith('interleaved-v2-'))}/>}
+  {study.metrics&&<HistoryReport view="table" metrics={study.metrics} selected={scenario} interleaved={study.interleaved}/>}
   <p className="ledger-footnote">Jev responses across three EV ranges and three controlled history scenarios and a no-history control. The Optimal EV line is a mathematical benchmark, not a model response. History conditions contain the stated fixed six-roll window; the no-history control omits it entirely. These are controlled inputs, not the preceding outcomes of the simulation. Offers and outcome faces are matched across scenarios. Repeated or related inputs are not independent samples. Source: {study.provenance}.</p>
   </div>}
  </>;

@@ -33,6 +33,54 @@ We think relying on Jev to infer a trading edge is poorly supported when it stru
 
 The history pattern is consistent with a rebound expectation after losses or caution after wins, but binary choices cannot reveal the model’s reasoning. Significance establishes differences in these tested conditions, not their internal cause. Smaller effects and generalization need fresh offers and repeated batches; 12,000 responses are not 12,000 independent offers.
 
+## Does Noul work better?
+
+**Not in this matched experiment at the predeclared threshold.** We repeated all 12,000 payout and history inputs with Noul, asking whether betting has strictly positive expected net profit. Bet when `noul > 0.5`; otherwise Skip, including ties.
+
+| Measure | Choice | Noul |
+| --- | ---: | ---: |
+| Bet rate | 84.4% | 98.5% |
+| Bet on +EV | 89.9% | 99.5% |
+| Skip on −EV | 21.2% | 2.5% |
+| Correct overall | 55.5% | 51.0% |
+| Cumulative expected profit | $6,161.60 | $1,465.00 |
+
+Each primitive evaluated 12,000 offers: 6,000 positive EV and 6,000 negative EV. The two sign-specific rates use those respective denominators. Expected profit sums offered EV on selected fixed-$100 bets, independently of realized outcomes.
+
+Noul bet on almost everything. It accepted nearly every profitable offer, but failed to reject most unprofitable ones. Its output is a judgment about whether EV is positive—not the probability of winning the next roll.
+
+The states and model version match, but batches were collected separately and the question wording changed with the primitive. This does not isolate question type alone, or establish that every Noul prompt performs similarly. The 0.5 threshold was fixed before collection, not fitted to these results.
+
+Source: [`src/data/noul-study.json`](src/data/noul-study.json), batch `noul-window-1790137937778`. Explore **Experiments → Question type → Noul** to inspect individual requests and responses.
+
+### Noul threshold sweep
+
+The same 12,000 saved responses, with Bet only when `noul > threshold`; ties and lower values become Skip. No offers are removed from the denominator.
+
+| Threshold | Bet rate | Bet on +EV | Skip on −EV | Correct overall | Expected profit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| >0.5 | 98.5% | 99.5% | 2.5% | 51.0% | $1,465.00 |
+| >0.6 | 85.4% | 90.7% | 19.9% | 55.3% | $5,808.60 |
+| >0.7 | 47.3% | 54.8% | 60.1% | 57.4% | $8,346.60 |
+| >0.8 | 9.2% | 12.6% | 94.3% | 53.4% | $3,865.40 |
+
+Of the displayed cutoffs, 0.7 produced the highest expected profit in this sample ($8,346.60), exceeding unfiltered Choice’s $6,161.60. It still missed 45.3% of positive-EV offers. Only 0.5 was predeclared; the remaining thresholds are exploratory, not independently validated. The experiment graph continues to use the original 0.5 rule.
+
+### Choice confidence sweep
+
+Bet only when Choice selects Bet **and** `confidence > threshold`; otherwise Skip, including exact ties. Confidence describes the option distribution, not a calibrated probability of correctness, and is not interchangeable with the Noul score. All 12,000 offers remain in every row.
+
+| Confidence cutoff | Bet rate | Bet on +EV | Skip on −EV | Correct overall | Total EV |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| >0.1 | 72.7% | 79.5% | 34.2% | 56.9% | $7,386.60 |
+| >0.2 | 58.1% | 65.8% | 49.6% | 57.7% | $8,207.40 |
+| >0.3 | 41.4% | 48.8% | 65.9% | 57.3% | $8,057.80 |
+| >0.4 | 23.8% | 29.4% | 81.8% | 55.6% | $6,521.00 |
+| >0.5 | 9.2% | 11.8% | 93.5% | 52.7% | $3,447.20 |
+| >0.6 | 1.6% | 2.5% | 99.3% | 50.9% | $1,022.20 |
+
+These cutoffs are exploratory replays of the saved Choice responses, not independently validated rules. They use strict `>`; earlier analysis using `>=` includes boundary values and can give different results. The live lab and experiment graphs still show unfiltered Choice.
+
 ## Explore the app
 
 - **Dice lab:** run live Bet/Skip decisions, manually or with autoplay, up to 30 rounds. Track betting rates, correct actions, realized returns, and expected returns.
@@ -102,3 +150,23 @@ npm test
 npm run typecheck
 npm run build
 ```
+
+
+## Reproduce the Noul experiment
+
+The Experiments page also supports **Noul · Positive EV?**, a separate batch using the exact same payout states and history conditions as the saved Choice study. It asks whether betting has strictly positive expected net profit. The decision rule is fixed before collection: **Bet if `noul > 0.5`; otherwise Skip**, including an exact 0.5 tie.
+
+```sh
+node --env-file=.env.local --experimental-strip-types scripts/history-experiment.ts --noul --concurrency=12
+python3 scripts/compare-primitives.py
+```
+
+The runner uses every row of `src/data/history-study.json` and saves its results separately to `src/data/noul-study.json`. It does not replace Choice results or change the live lab. Resume with `--noul --resume=reports/noul-window-TIMESTAMP`. Exact requests and raw responses are retained. The comparison report includes betting rates, positive-EV bets, negative-EV skips, correctness, and cumulative expected profit.
+
+Inputs are matched, but the primitive batches are collected at different times. The question also changes from selecting an action to judging a positive-EV proposition. Differences therefore do not isolate question type alone.
+
+### Precomputed web data
+
+`npm run build` and `npm run dev` first run `npm run precompute`. This generates a small homepage summary in `src/data/generated/` and versioned static experiment assets in `public/experiments/`. Generated files are ignored by Git; the source studies must be present when building.
+
+Opening Experiments loads a precomputed graph and statistics for the selected question type, magnitude, and history. Inspecting a roll fetches only that result's full input and output. Export run downloads a separate complete export on demand. The homepage does not read the raw historical studies at request time. Run `npm run precompute` again after changing source studies during development.
