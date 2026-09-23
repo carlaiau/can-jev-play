@@ -1,4 +1,5 @@
 'use client';
+import manifest from '../data/generated/manifest.json';
 import {ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine} from 'recharts';
 import {useEffect,useRef,useState} from 'react';
 import {HistoryReport} from './history-report';
@@ -23,7 +24,7 @@ export function HistoryExperiments(){
  const [selected,setSelected]=useState<number|null>(null),[rollInput,setRollInput]=useState('1');
  const detailsRef=useRef<HTMLElement>(null);
  const loadVersion=useRef(0);
- async function load(){const version=++loadVersion.current;setError('');setStudy(null);try{const r=await fetch(`/api/experiments?magnitude=${magnitude}&scenario=${scenario}&primitive=${primitive}`);const d=await r.json();if(!r.ok)throw Error(d.error);if(version!==loadVersion.current)return;setStudy(d);}catch(e){if(version===loadVersion.current)setError(e instanceof Error?e.message:'Could not load results.');}}
+ async function load(){const version=++loadVersion.current;setError('');setStudy(null);try{const r=await fetch(`${manifest.base}/${primitive}/${magnitude}-${scenario}.json`);const d=await r.json();if(!r.ok)throw Error(d.error);if(version!==loadVersion.current)return;setStudy(d);}catch(e){if(version===loadVersion.current)setError(e instanceof Error?e.message:'Could not load results.');}}
  useEffect(()=>{void load();return()=>{loadVersion.current++;};},[magnitude,scenario,primitive]);
  const rows=study?.rows??[];
  const total=rows.length || (scenario==='all'?4000:1000);

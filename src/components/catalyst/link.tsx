@@ -1,3 +1,4 @@
+import NextLink from 'next/link'
 /**
  * TODO: Update this component to use your client-side framework's link
  * component. We've provided examples of how to do this for Next.js, Remix, and
@@ -15,7 +16,7 @@ export const Link = forwardRef(function Link(
 ) {
   return (
     <Headless.DataInteractive>
-      <a {...props} ref={ref} />
+      <NextLink {...props} ref={ref} />
     </Headless.DataInteractive>
   )
 })
