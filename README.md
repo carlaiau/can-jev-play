@@ -170,3 +170,7 @@ Inputs are matched, but the primitive batches are collected at different times. 
 `npm run build` and `npm run dev` first run `npm run precompute`. This generates a small homepage summary in `src/data/generated/` and versioned static experiment assets in `public/experiments/`. Generated files are ignored by Git; the source studies must be present when building.
 
 Opening Experiments loads a precomputed graph and statistics for the selected question type, magnitude, and history. Inspecting a roll fetches only that result's full input and output. Export run downloads a separate complete export on demand. The homepage does not read the raw historical studies at request time. Run `npm run precompute` again after changing source studies during development.
+
+### Live session storage
+
+On Netlify, live session state, request/response logs, and action locks use `@netlify/blobs` with strong consistency. Stores are separated by deployment context (`jev-sessions-production`, etc.) and persist across deployments. Netlify provides the storage connection automatically in its function runtime. Local runs keep using `reports/web`. Deploy the updated dependencies with the app; changing the output directory to `/tmp` alone would not preserve sessions across function instances.

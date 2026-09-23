@@ -1,9 +1,10 @@
+import { readStoredSession, saveStoredSession, logSession, lockSession } from './session-store.ts';
 import {choiceThresholdMetrics} from './binary-action.ts';
 import {noulThresholdMetrics} from './noul-action.ts';
 import {historyMetrics} from './history-experiment';
 import { historyPlan, historyRequest, withoutRecentHistory, type HistoryStudy, type Scenario } from './history-experiment.ts';
 import { randomInt, randomUUID } from 'node:crypto';
-import { readFile, writeFile, rename, mkdir, open, unlink, appendFile, stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import dataset from '../data/recorded-study.json';
 import faceData from '../data/face-study.json';
@@ -19,7 +20,6 @@ import { MODEL } from './lab-types.ts';
 import type { LabConfig, LabSession, LabRound, Judgment } from './lab-types.ts';
 
 const structuredDataset = structuredData as unknown as { summary: ReturnType<typeof summarizeBinary> };
-const root = path.join(process.cwd(), 'reports', 'web');
 export const studySummaries = { ...dataset.studies, thresholds: faceDataset.thresholds, binary: structuredDataset.summary };
 export const liveAvailable = () => !!process.env.TYPESAFE_API_KEY?.trim();
 const historyCaches = new Map<string, { modified: number; value: Promise<HistoryStudy> }>();
@@ -47,23 +47,14 @@ async function round(config:LabConfig,number:number):Promise<LabRound> {
  const trial=config.ending==='no-history'?withoutRecentHistory(source):source;
  return {number,ev:trial.ev,stake:100,gross:trial.gross,bankroll:10000,historyFaces:trial.history.map(r=>r.face),historicalNet:trial.history.reduce((s,r)=>s+r.netProfit,0),state:trial.state,judgments:{}};
 }
-function file(id: string) {
-  if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/.test(id)) throw new Error('Invalid session. Start a new experiment.');
-  return path.join(root, `${id}.json`);
-}
-async function save(session: LabSession) {
-  const target = file(session.id), temp = `${target}.${randomUUID()}.tmp`;
-  await writeFile(temp, JSON.stringify(session));
-  await rename(temp, target);
-}
+const save = saveStoredSession;
 export async function createSession(config: unknown) {
  const validated=validateConfig(config);
  if(validated.mode==='recorded')await readHistoryStudy();
- await mkdir(root,{recursive:true});
  const session:LabSession={study:validated.mode==='live'?'payout-live-v1':'history-v1',id:randomUUID(),config:validated,createdAt:new Date().toISOString(),round:await round(validated,1),ledger:[],totals:{table:0,calculated:0}};
  await save(session);return session;
 }
-export async function readSession(id: string): Promise<LabSession> { return JSON.parse(await readFile(file(id), 'utf8')); }
+export const readSession = readStoredSession;
 function mapJudgment(response: Record<string, unknown>, sourceId?: string): Judgment {
   const parsed = parseBinaryAction(response);
   const usage = response.usage as { input_tokens?: number };
@@ -83,19 +74,17 @@ async function evaluate(session: LabSession, arm: 'table' | 'calculated') {
   session.round.requests[arm] = body;
   if (session.config.mode === 'recorded') return recorded(session, arm);
   if (contextProxy(body) > 32000) throw new Error('History exceeds the context limit. Start a new session.');
-  const log = path.join(root, `${session.id}.jsonl`);
-  await appendFile(log, JSON.stringify({ event: 'request', at: new Date().toISOString(), round: session.round.number, arm, body }) + '\n');
+  await logSession(session.id, { event: 'request', at: new Date().toISOString(), round: session.round.number, arm, body });
   const response = await fetch('https://api.typesafe.ai/v1/systemone', { method: 'POST', headers: { Authorization: `Bearer ${process.env.TYPESAFE_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) });
   const raw = await response.text();
-  await appendFile(log, JSON.stringify({ event: 'response', at: new Date().toISOString(), round: session.round.number, arm, status: response.status, raw }) + '\n');
+  await logSession(session.id, { event: 'response', at: new Date().toISOString(), round: session.round.number, arm, status: response.status, raw });
   if (!response.ok) throw new Error(`JEV returned HTTP ${response.status}. Retry the unfinished evaluation.`);
   const judgment = mapJudgment(JSON.parse(raw));
   if (judgment.model !== MODEL) throw new Error('JEV returned an unexpected model version.');
   return judgment;
 }
 export async function actOnSession(id: string, action: 'evaluate' | 'roll' | 'next', expectedRound: number) {
-  const target = file(id);
-  const lock = await open(`${target}.lock`, 'wx').catch(() => { throw new Error('This session is busy. Wait for the current step to finish.'); });
+  const release = await lockSession(id);
   try {
     const session = await readSession(id);
     if (session.round.number !== expectedRound) throw new Error('This round has already advanced. Reload the session.');
@@ -124,7 +113,7 @@ export async function actOnSession(id: string, action: 'evaluate' | 'roll' | 'ne
     } else throw new Error('Unknown step.');
     await save(session);
     return session;
-  } finally { await lock.close(); await unlink(`${target}.lock`); }
+  } finally { await release(); }
 }
 export function sessionCost(session: LabSession) {
   const rounds = [...session.ledger, ...(session.round.face === undefined ? [session.round] : [])];
