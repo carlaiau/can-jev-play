@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { binaryQuestions, parseBinaryAction, summarizeBinary } from '../src/lib/binary-action.ts';
 test('current experiment asks exactly one binary action question', () => {
  assert.deepEqual(Object.keys(binaryQuestions),['action']);
+ assert.doesNotMatch(JSON.stringify(binaryQuestions),/stake|bankroll/i);
  assert.equal(binaryQuestions.action.type,'choice');
  assert.deepEqual(Object.keys(binaryQuestions.action.criteria),['bet','skip']);
  assert.equal(parseBinaryAction({model:'jev-1.13.0',answers:{action:{type:'choice',choice:'skip'}}}).action,'skip');

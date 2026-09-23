@@ -1,87 +1,23 @@
 import assert from 'node:assert/strict';
-
-const base = process.env.LAB_TEST_URL || 'http://127.0.0.1:3000';
-async function post(body) {
-  const response = await fetch(`${base}/api/lab`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  });
-  return { status: response.status, ...await response.json() };
+const base=process.env.LAB_TEST_URL||'http://127.0.0.1:3000';
+async function post(body){const r=await fetch(`${base}/api/lab`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:r.status,...await r.json()};}
+const {readFile}=await import('node:fs/promises');
+const study=JSON.parse(await readFile('src/data/history-study.json','utf8'));assert.ok(study.rows.length>=270);
+assert.equal((await post({action:'create',config:{mode:'recorded',magnitude:99,ending:'mixed'}})).status,400);
+for(const magnitude of [1,5,15])for(const ending of ['mixed','win-streak','loss-streak']){
+ const made=await post({action:'create',config:{mode:'recorded',magnitude,ending}});assert.equal(made.status,200,JSON.stringify(made));const id=made.session.id;
+ assert.equal((await post({action:'roll',id,round:1})).status,400);
+ const limit=magnitude===5&&ending==='mixed'?30:1;const evs=[];
+ for(let round=1;round<=limit;round++){
+  const evaluated=await post({action:'evaluate',id,round});assert.equal(evaluated.status,200,JSON.stringify(evaluated));const r=evaluated.session.round;evs.push(r.ev);assert.equal(r.face,undefined);
+  const source=study.rows.find(s=>s.id===r.judgments.table.sourceId);assert.ok(source);
+  for(const arm of ['table','calculated']){assert.deepEqual(r.requests[arm],source.decisions[arm].request);assert.deepEqual(r.judgments[arm].raw,source.decisions[arm].response);assert.doesNotMatch(JSON.stringify(r.requests[arm]),/stake|bankroll/i);assert.equal(r.requests[arm].state.recentRolls.count,6);assert.equal(r.requests[arm].state.recentRolls.rolls.filter(h=>h.outcome==='win').length,ending==='mixed'?3:ending==='win-streak'?6:0);}
+  assert.equal(r.requests.table.state.calculatedExpectedNetProfit,undefined);assert.ok(Math.abs(r.requests.calculated.state.calculatedExpectedNetProfit.value-r.ev)<1e-8);
+  const rolled=await post({action:'roll',id,round});assert.equal(rolled.status,200);assert.equal(rolled.session.ledger.length,round);
+  for(const arm of ['table','calculated'])assert.equal(rolled.session.round.returns[arm],r.judgments[arm].action==='bet'?rolled.session.round.net:0);
+  assert.deepEqual((await post({action:'roll',id,round})).session,rolled.session);
+  if(round<limit){assert.equal((await post({action:'next',id,round})).status,200);assert.equal((await post({action:'roll',id,round})).status,400);}
+ }
+ if(limit===30){assert.equal((await post({action:'next',id,round:30})).status,400);assert.equal(evs.filter(e=>e>0).length,15);assert.equal(evs.filter(e=>e<0).length,15);}
 }
-const created = await post({ action: 'create', config: { mode: 'recorded', ev: 1, returns: 'loss', ending: 'loss-streak' } });
-assert.equal(created.status, 200);
-const id = created.session.id;
-assert.equal((await post({ action: 'roll', id, round: 1 })).status, 400);
-const evaluated = await post({ action: 'evaluate', id, round: 1 });
-assert.equal(evaluated.status, 200);
-assert.equal(evaluated.session.round.face, undefined);
-assert.ok(evaluated.session.round.decidedAt);
-assert.ok(evaluated.session.round.judgments.table.sourceId);
-assert.equal(evaluated.session.round.requests.table.state.calculatedExpectedNetProfit, undefined);
-assert.equal(evaluated.session.round.requests.calculated.state.calculatedExpectedNetProfit.value, 1);
-assert.equal(evaluated.estimatedCost, 0);
-const rolled = await post({ action: 'roll', id, round: 1 });
-assert.equal(rolled.status, 200);
-assert.ok(rolled.session.round.face >= 1 && rolled.session.round.face <= 6);
-assert.equal(rolled.session.ledger.length, 1);
-const repeated = await post({ action: 'roll', id, round: 1 });
-assert.deepEqual(repeated.session, rolled.session);
-assert.deepEqual((await post({ action: 'load', id })).session, rolled.session);
-assert.equal((await post({ action: 'next', id, round: 1 })).session.round.number, 2);
-assert.equal((await post({ action: 'roll', id, round: 1 })).status, 400);
-console.log('Recorded API flow passed: ordered decisions, shared roll, idempotency, recovery, stale-round rejection.');
-
-for (const ev of [-1, -3, -5]) {
-  const created = await post({ action: 'create', config: { mode: 'recorded', ev, returns: 'loss', ending: 'loss-streak' } });
-  assert.equal(created.status, 200);
-  const id = created.session.id;
-  const evaluated = await post({ action: 'evaluate', id, round: 1 });
-  assert.equal(evaluated.status, 200);
-  assert.equal(evaluated.session.round.requests.calculated.state.calculatedExpectedNetProfit.value, ev);
-  assert.equal(evaluated.session.round.gross.reduce((a, b) => a + b, 0) / 6 - 100, ev);
-  const rolled = await post({ action: 'roll', id, round: 1 });
-  for (const arm of ['table', 'calculated']) {
-    assert.equal(rolled.session.round.returns[arm], evaluated.session.round.judgments[arm].action === 'skip' ? 0 : rolled.session.round.net);
-  }
-}
-console.log('Negative EV replay and action-based settlement passed for all three offers.');
-const mixed = await post({ action: 'create', config: { mode: 'recorded', ev: 'mixed', returns: 'loss', ending: 'loss-streak' } });
-assert.equal(mixed.status, 200);
-const mixedId = mixed.session.id;
-const observed = [];
-for (let round = 1; round <= 6; round++) {
-  const response = await post({ action: 'evaluate', id: mixedId, round });
-  assert.equal(response.status, 200);
-  const current = response.session.round;
-  observed.push(current.ev);
-  assert.equal(current.requests.calculated.state.calculatedExpectedNetProfit.value, current.ev);
-  assert.equal(current.judgments.table.score, undefined);
-  assert.deepEqual(Object.keys(current.requests.table.questions), ['action']);
-  assert.deepEqual(Object.keys(current.requests.calculated.questions), ['action']);
-  assert.deepEqual(Object.keys(current.judgments.table.raw.answers), ['action']);
-  assert.equal(current.judgments.table.betWeight, undefined);
-  const rolled = await post({ action: 'roll', id: mixedId, round });
-  assert.equal(rolled.status, 200);
-  if (round < 6) assert.equal((await post({ action: 'next', id: mixedId, round })).status, 200);
-}
-assert.deepEqual([...observed].sort((a,b)=>a-b), [-5,-3,-1,1,3,5]);
-console.log('Mixed replay presents every EV once per block with exact matching model inputs.');
-// New recordings must use exactly the state shown, including payout placement.
-const { readFile } = await import('node:fs/promises');
-const finalMixed = (await post({ action: 'load', id: mixedId })).session;
-const sample = finalMixed.ledger[0];
-const manifest = JSON.parse(await readFile(`${sample.judgments.table.sourceRun}-manifest.json`, 'utf8'));
-for (const arm of ['table','calculated']) {
- const trial = manifest.trials.find(t=>t.id===sample.judgments[arm].sourceId);
- assert.deepEqual(sample.requests[arm].state,trial.state);
-}
-const actualGross = sample.state.rules.payoutTable.split('\n').slice(2).map(row=>Number(row.split('|')[4].trim()));
-assert.deepEqual(sample.gross,actualGross);
-console.log('Displayed randomized payout, request and recorded source trial match exactly.');
-for (const row of finalMixed.ledger) for (const arm of ['table','calculated']) {
- const state = row.requests[arm].state;
- assert.equal(state.history,undefined);
- assert.equal(state.historicalSummary,undefined);
- assert.equal(state.historyIsSynthetic,undefined);
- assert.equal(JSON.stringify(state).toLowerCase().includes('histor'),false);
-}
-console.log('Both experimental API inputs contain only the current offer, never historical context.');
+console.log('All 9 range/history combinations: exact recorded inputs/outputs, six-roll treatments, no stake/bankroll, paired settlement, idempotency, stale-round protection and 30-round cap passed.');

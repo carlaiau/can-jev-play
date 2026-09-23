@@ -128,6 +128,8 @@ The desktop shell uses a 224px sticky sidebar and a flexible workspace. Main con
 
 At 1200px the sidebar narrows to 190px and controls wrap. At 950px navigation becomes a horizontal header. At 700px the offer and comparison panels stack, controls use two columns, and the decision conditions remain paired side by side. The ledger keeps its 680px minimum width inside horizontal scrolling. At 1600px panel padding and some metadata sizes increase.
 
+The Experiments surface extends this shell with a full-width evidence chart followed by a linked ledger. Its controls and scenario summaries wrap naturally. Below 700px, chart headings and magnitude controls stack, panel padding tightens to 16px, and the pan slider moves onto its own row. The plot preserves a 570px minimum width within horizontal scrolling; the ledger retains every column.
+
 ## Elevation & Depth
 
 Custom panels are flat: white or subtly tinted surfaces, thin rules, and tonal separation establish structure. Catalyst buttons and selects retain their supplied small shadow and inset control treatment. Do not describe the full system as shadow-free.
@@ -166,6 +168,16 @@ Equal condition columns show information supplied, the binary Bet/Skip action, a
 
 The ledger uses a genuine table with right-sized compact type and horizontal overflow. Historical wins and losses use pale green and warm clay cells, with numerals and a legend. Empty states use a thin dashed boundary and concise guidance.
 
+### History experiment comparison
+
+Experiments uses restrained underlined scenario tabs, compact correct-action summaries, and the existing Catalyst selects and outline buttons. Mixed outcomes, Six wins, and Six losses share identical presentation. Scenario selection uses Forest text and an underline; these history labels describe the supplied evidence, not judgment quality.
+
+The expected-profit chart sits in a flat white, thin-bordered panel with the existing panel radius. Payouts only uses a solid Forest line; With calculated EV uses a dashed Research Amber line. Explicit legend labels and distinct line styles preserve the paired comparison beyond color. Hollow circles mark correct actions and warm-red outlined diamonds identify incorrect EV actions. Quiet grid lines, dollar-formatted tabular labels, and an emphasized zero baseline keep numerical evidence primary. The chart caption states the fixed $100 bet basis and separates expected profit from realized outcomes or reinvestment.
+
+Selecting a chart point or ledger row links the two views using a vertical dashed chart guide and a pale sage table-row fill. The 30-roll overview can narrow to a 10-roll viewport with a slider and Earlier/Later controls. The ledger keeps a sticky header inside a bounded scrolling container. Chart points support keyboard selection; roll-number buttons provide an explicit table action.
+
+The selected-decision inspector repeats the paired condition layout in a flat panel beneath the chart. Each condition shows its action, EV verdict, and exact model request and response in a bounded, scrollable monospace block. These columns stack on mobile using the existing log disclosure layout. Keep the visible correctness explanation independent of the sampled face.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -190,3 +202,24 @@ EV verdicts are icon-only immediately to the right of Bet/Skip, in both the deci
 
 Roll and Autoplay are in one toolbar above the entire offer/comparison grid. Autoplay has a Pause state and caps at 30 rounds. Each comparison column groups actual dollar net with total staked, expected dollar net and EV/stake percentage. All display amounts use dollar notation; exact archived model payloads remain unchanged.
 The history selector is labeled Displayed history, and the historical panel says it is not sent to JEV. Decision input copy explicitly says No history. The current results view uses fresh current-offer-only recordings.
+Input copy identifies JSON payouts. The visible payout table stays readable for people; the model receives structured JSON, shown verbatim in the expandable experiment log.
+
+## Live-home refinement
+The homepage has only EV magnitude, recent-roll scenario, and session controls; its response-source selector is removed. Both condition headings are clickable, with a chevron and the existing A/B badge. A Catalyst dialog shows a scrollable JSON payout excerpt, with B including the EV calculation. Dialogs identify prepared versus submitted requests and retain Close/Escape dismissal. The introductory subtitle, sidebar descriptive paragraph and page footer are removed.
+
+Expanded recorded runs derive their visible counts and chart bounds from the dataset. The default chart window is 100 rolls, with 10-roll detail and all-roll overview options. Existing scenario tabs, two expected-profit curves, selection markers and the scrollable ledger are retained for the 1,000-roll run.
+
+The all-roll experiment overview renders only the two line paths, without point/diamond markers or the Earlier/Later slider toolbar. The diamond legend is hidden with its markers. Detail windows retain decision markers and pan controls; overview click-to-select and table selection remain available.
+
+Experiments now use Recharts ResponsiveContainer/LineChart with two linear Line series. Both dot and activeDot are disabled in every window. Forest solid and amber dashed distinguish strategies; hover tooltip exposes decision correctness, while click and table selection share a vertical reference line. The All history tab combines 3,000 samples for one EV magnitude, retaining source history/round in the table and inspector. Full-run view hides pan controls.
+
+Experiment charts label the amber benchmark Optimal EV, computed from the offer rather than another model response. Selected-roll details pair a six-face payout table with shared home-page die icons and the payout-only JSON inspector; these stack on mobile. Supplied-EV model reporting is removed from Experiments.
+
+The live lab now has one full-width decision column beside the offer, one model response in the ledger and one call per roll. A/B comparison badges are removed. Findings & discussion replaces Earlier studies in navigation; it leads with the supplied-EV control result, then explains why the product centers on payout-only inference and recent-history susceptibility. Earlier reports remain in a disclosure.
+
+Experiment browsing now uses summary tabs with correct-action counts directly beneath each history label. The separate summary strip and full roll ledger are removed. Clicking the graph reveals the selected payout/response card below it; no card is shown before selection. Export retains all rows.
+
+Experiments begins with the initial history-bias finding and the replication design. Its tab-linked comparison table sits beneath the history tabs and above the graph, with the selected history labeled and shaded sage. Rate cells include numerator/denominator on a secondary line; wide comparisons scroll within the page on mobile. Findings reuses the same comparison across all ranges and adds discussion of alternative mechanisms and statistical limits.
+
+## Can Jev Play refinement
+Experiment charts always display the full selected run; window sizes and pan controls are removed. Totals and plotted endpoints cover the same scope. The graph precedes the comparison table, with full evidence accessible by graph selection or a labeled roll-number form and Previous/Next actions. History tabs support arrow/Home/End keyboard navigation. Mobile navigation has visible Dice lab, Experiments, Findings and Guide labels with active-page semantics. The live rate table appears after the first decision; the compact opening explains the task and trading-demo motivation. Repeated Findings conclusions are removed while evidence, caveats and source provenance remain.

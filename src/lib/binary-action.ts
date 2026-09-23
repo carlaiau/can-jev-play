@@ -1,6 +1,11 @@
-import { actionQuestions } from './history-action.ts';
-
-export const binaryQuestions = { action: actionQuestions.action };
+export const binaryQuestions = { action: {
+  type: 'choice' as const,
+  instructions: 'Which action maximizes expected net profit for this one independent roll under the risk-neutral objective?',
+  criteria: {
+    bet: 'Accept the net profit or loss corresponding to the next die face.',
+    skip: 'Do not bet; net profit is zero.',
+  },
+} };
 export function parseBinaryAction(raw: unknown) {
   const response = raw as Record<string, unknown>;
   const answers = response?.answers as Record<string, { type?: string; choice?: string }> | undefined;

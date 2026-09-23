@@ -1,0 +1,27 @@
+{
+  "provenance": "reports/history-window-1790131933133",
+  "calls": 9000,
+  "groups": [
+    {
+      "scenario": "mixed",
+      "calls": 3000,
+      "tableCorrect": 1936,
+      "tableBets": 1898,
+      "controlCorrect": 3000
+    },
+    {
+      "scenario": "wins",
+      "calls": 3000,
+      "tableCorrect": 1843,
+      "tableBets": 903,
+      "controlCorrect": 3000
+    },
+    {
+      "scenario": "losses",
+      "calls": 3000,
+      "tableCorrect": 1860,
+      "tableBets": 2198,
+      "controlCorrect": 3000
+    }
+  ]
+}

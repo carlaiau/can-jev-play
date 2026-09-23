@@ -1,4 +1,4 @@
 import { Lab } from '../src/components/lab';
-import { liveAvailable, studySummaries } from '../src/lib/lab-server';
+import { liveAvailable, studySummaries, historyFindings } from '../src/lib/lab-server';
 export const dynamic = 'force-dynamic';
-export default function Page() { return <Lab liveAvailable={liveAvailable()} studies={studySummaries} />; }
+export default async function Page() { return <Lab liveAvailable={liveAvailable()} studies={{...studySummaries,findings:await historyFindings()}} />; }

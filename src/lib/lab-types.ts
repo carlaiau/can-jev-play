@@ -1,5 +1,5 @@
-export type LabConfig = { mode: 'recorded' | 'live'; ev: number | 'mixed'; returns: 'gain' | 'flat' | 'loss'; ending: 'mixed' | 'win-streak' | 'loss-streak' };
+export type LabConfig = { mode: 'recorded' | 'live'; magnitude: 1 | 5 | 15; ending: 'mixed' | 'win-streak' | 'loss-streak' | 'no-history' };
 export type Judgment = { action: 'bet' | 'skip'; model: string; inputTokens: number; raw: Record<string, unknown>; sourceRun?: string; sourceId?: string };
 export type LabRound = { number: number; replayRepeat?: number; ev: number; stake: number; gross: number[]; bankroll: number; historyFaces: number[]; historicalNet: number; state: Record<string, unknown>; requests?: Partial<Record<'table' | 'calculated', Record<string, unknown>>>; judgments: Partial<Record<'table' | 'calculated', Judgment>>; decidedAt?: string; rolledAt?: string; face?: number; net?: number; returns?: { table: number; calculated: number }; };
-export type LabSession = { id: string; config: LabConfig; createdAt: string; offerSequence?: number[]; study?: 'faces' | 'binary' | 'offer-only'; round: LabRound; ledger: LabRound[]; totals: { table: number; calculated: number }; };
+export type LabSession = { id: string; config: LabConfig; createdAt: string; offerSequence?: number[]; study?: 'faces' | 'binary' | 'offer-only' | 'structured' | 'structured-v2' | 'structured-v3' | 'history-v1' | 'payout-live-v1'; round: LabRound; ledger: LabRound[]; totals: { table: number; calculated: number }; };
 export const MODEL = 'jev-1.13.0';
